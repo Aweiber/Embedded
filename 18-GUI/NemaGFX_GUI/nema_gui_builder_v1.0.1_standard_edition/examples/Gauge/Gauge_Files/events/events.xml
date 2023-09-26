@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EVENTS_0_16>
+    <EVENT NAME="onButtonRelease" TRIGGER="2" SOURCE_ID="1273">
+        <ACTION INDEX="8" RECURRENCY="2" DURATION="3" EASING="5" EAS_IN="0" EAS_INOUT="0" EAS_IN_OUT="1" EAS_OUT="0" InitialValueFixed="0" TARGET="1244" VALUE="8"/>
+        <ACTION INDEX="8" RECURRENCY="2" DURATION="3" EASING="5" EAS_IN="0" EAS_INOUT="0" EAS_IN_OUT="1" EAS_OUT="0" InitialValueFixed="0" TARGET="1251" VALUE="30"/>
+    </EVENT>
+</EVENTS_0_16>

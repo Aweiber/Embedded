@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FONT_ASSETS>
+    <FONT ID="3" SIZE="18" PATH="DigitalNumbers-Regular.ttf" BPP="8" KERNING_SUPPORT="0" RANGE_COUNT="1" NEMA_MEM_POOL="0">
+        <RANGE START="32" END="127"/>
+    </FONT>
+    <FONT ID="6" SIZE="14" PATH="DigitalNumbers-Regular.ttf" BPP="8" KERNING_SUPPORT="0" RANGE_COUNT="1" NEMA_MEM_POOL="0">
+        <RANGE START="32" END="127"/>
+    </FONT>
+</FONT_ASSETS>

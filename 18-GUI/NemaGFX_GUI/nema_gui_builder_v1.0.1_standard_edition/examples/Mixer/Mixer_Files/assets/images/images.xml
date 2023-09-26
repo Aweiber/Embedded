@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<IMAGE_ASSETS>
+    <IMAGE ID="5" NAME="mixer_slider.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="mixer_slider.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="6" NAME="indicator.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="indicator.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="7" NAME="LP_vinyl3.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="LP_vinyl3.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="8" NAME="indicator_vertical.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="indicator_vertical.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="9" NAME="mixer_slider_vertical.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="mixer_slider_vertical.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+</IMAGE_ASSETS>

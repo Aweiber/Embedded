@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<IMAGE_ASSETS>
+    <IMAGE ID="0" NAME="Espresso.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="Espresso.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="4" NAME="milk.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="milk.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="5" NAME="sugar.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="sugar.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="6" NAME="white (1).png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="white (1).png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="7" NAME="white.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="white.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="13" NAME="Background_coffee_beans.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="Background_coffee_beans.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="15" NAME="americano_full4.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="americano_full4.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="17" NAME="cappuccino.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="cappuccino.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="19" NAME="doppio_full.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="doppio_full.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="27" NAME="loading_icon_background.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="loading_icon_background.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="28" NAME="loading_icon_front.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="loading_icon_front.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="29" NAME="Cup_empty.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="Cup_empty.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+    <IMAGE ID="30" NAME="content_full.png" FORMAT="2" R_DEFAULT="0" G_DEFAULT="0" B_DEFAULT="0" PATH="content_full.png" TEXTURE_FILTERING="1" GEN_H_FILE="0" NEMA_MEM_POOL="0"/>
+</IMAGE_ASSETS>

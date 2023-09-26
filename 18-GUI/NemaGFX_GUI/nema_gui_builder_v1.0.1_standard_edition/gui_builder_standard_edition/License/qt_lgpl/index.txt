@@ -1,0 +1,10 @@
+NEMA GUI-Builder uses Qt 5.9.0 libraries. They can be downloaded from:
+
+http://download.qt.io/official_releases/qt/5.9/5.9.0/
+
+End users can freely re-link NEMA GUI-Builder to their own versions of the Qt Toolkit libraries as long as they remain interface-compatible with
+the current library version (5.9.0) .
+
+
+In case there is in any trouble downloading the Qt Source Code from the links provided above, Think Silicon S.A. is offering assistance in order to retreive it. Please send you inquiry,
+at info@think-silicon.com, stating the Nema GUI-Builder version that you use.

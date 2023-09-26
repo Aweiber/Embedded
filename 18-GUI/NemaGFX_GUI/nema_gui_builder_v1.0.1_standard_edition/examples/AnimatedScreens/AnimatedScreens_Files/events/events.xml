@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EVENTS_0_16>
+    <EVENT NAME="on_7_Label_Button1" TRIGGER="2" SOURCE_ID="7">
+        <ACTION INDEX="4" RECURRENCY="2" DIRECTION="0" DURATION="0.3" EFFECT="0" InitialValueFixed="0" TARGET="9"/>
+    </EVENT>
+    <EVENT NAME="on_10_Label_Button1" TRIGGER="2" SOURCE_ID="10">
+        <ACTION INDEX="4" RECURRENCY="2" DURATION="0.5" EFFECT="5" InitialValueFixed="0" TARGET="12"/>
+    </EVENT>
+    <EVENT NAME="on_13_Label_Button1" TRIGGER="2" SOURCE_ID="13">
+        <ACTION INDEX="4" RECURRENCY="2" DIRECTION="2" DURATION="0.8" EFFECT="0" InitialValueFixed="0" TARGET="15"/>
+    </EVENT>
+    <EVENT NAME="on_16_Label_Button1" TRIGGER="2" SOURCE_ID="16">
+        <ACTION INDEX="4" RECURRENCY="2" DURATION="0.5" EFFECT="4" InitialValueFixed="0" TARGET="18"/>
+    </EVENT>
+    <EVENT NAME="on_19_Label_Button1" TRIGGER="2" SOURCE_ID="19">
+        <ACTION INDEX="4" RECURRENCY="2" DURATION="0.3" EFFECT="5" TARGET="1"/>
+    </EVENT>
+</EVENTS_0_16>
