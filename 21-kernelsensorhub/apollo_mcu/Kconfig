@@ -1,0 +1,4 @@
+config INPUT_JK_APOLLO
+	bool "CONFIG_INPUT_JK_APOLLO"
+	help
+	  jkwear on APOLLO
