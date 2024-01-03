@@ -1,0 +1,27 @@
+diff --git a/frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java b/frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java
+index a2d2946..922714b 100755
+--- a/frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -1854,6 +1854,9 @@
+             if (whitelistedRestrictedPermissions != null
+                    && !whitelistedRestrictedPermissions.isEmpty()) {
+                mPermissionManager.setWhitelistedRestrictedPermissions(
+                        res.pkg, res.newUsers, whitelistedRestrictedPermissions,
+                        Process.myUid(), PackageManager.FLAG_PERMISSION_WHITELIST_INSTALLER,
+                        mPermissionCallback);
+             }
+ 
++            // Modify by wen.liu for install app default authorization 2023.6.20
++            grantPermissions = true;
++
+             // Now that we successfully installed the package, grant runtime
+             // permissions if requested before broadcasting the install. Also
+             // for legacy apps in permission review mode we clear the permission
+             // review flag which is used to emulate runtime permissions for
+             // legacy apps.
+             if (grantPermissions) {
+                final int callingUid = Binder.getCallingUid();
+                mPermissionManager.grantRequestedRuntimePermissions(
+                        res.pkg, res.newUsers, grantedPermissions, callingUid,
+                        mPermissionCallback);
+            }

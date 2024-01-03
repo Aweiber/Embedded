@@ -1,0 +1,51 @@
+diff --git a/SIM8502/bsp/bootloader/u-boot15/common/loader/loader_common.c b/SIM8502/bsp/bootloader/u-boot15/common/loader/loader_common.c
+index d7787ea..07e8519 100755
+--- a/SIM8502/bsp/bootloader/u-boot15/common/loader/loader_common.c
++++ b/SIM8502/bsp/bootloader/u-boot15/common/loader/loader_common.c
+@@ -61,6 +61,22 @@ unsigned char _chkNVEcc(uint8_t *buf, uint64_t size, uint32_t checksum)
+ 	debugf("_chkNVEcc calcout 0x%x, org 0x%x\n", crc, (uint16_t)checksum);
+ 	return (crc == (uint16_t) checksum);
+ }
++
++#define SN_START  (768 * 1024+64)
++typedef struct _T_SN_FUNC_DATA {
++    char sn_num[64];
++} sn_func_data_t;
++sn_func_data_t  sn_data;
++char *get_sn(void)
++{
++	 memset(&sn_data, 0, sizeof(sn_data) );
++      if(common_raw_read(PRODUCTINFO_FILE_PATITION,sizeof(sn_data), (uint64_t)SN_START, (char *)&sn_data)){
++          debugf("sn_data read miscdata error.\n");
++          return NULL;
++      }
++      debugf("sn_data.version_num=%s\n",sn_data.sn_num);
++        return sn_data.sn_num;
++}
+ void ABC_to_abc(char* src, int length)
+ {
+ 	int index = 0;
+@@ -79,7 +95,11 @@ char *get_product_sn(void)
+ 	uint32_t magic;
+ 
+ 	memset(serial_number_to_transfer, 0x0, SP15_MAX_SN_LEN);
+-
++     if(strlen(get_sn()) != 0)
++     	{
++     	          strcpy(serial_number_to_transfer, get_sn());
++     	}
++    else{
+ 	strcpy(serial_number_to_transfer, "0123456789ABCDEF");
+ 	if (0 != common_raw_read(PRODUCTINFO_FILE_PATITION, sizeof(magic), (uint64_t)0, (char *)&magic)) {
+ 		errorf("read miscdata error.\n");
+@@ -101,8 +121,8 @@ char *get_product_sn(void)
+ 		if(strlen(phase_check_sp15.SN1)){
+ 			memcpy(serial_number_to_transfer, phase_check_sp15.SN1, SP15_MAX_SN_LEN);
+ 		}
+-	}
+-	
++	 }
++     }
+ 	ABC_to_abc(serial_number_to_transfer,SP15_MAX_SN_LEN);
+ 	debugf("[INFO] sn = %s\n", serial_number_to_transfer);
+ 	return serial_number_to_transfer;

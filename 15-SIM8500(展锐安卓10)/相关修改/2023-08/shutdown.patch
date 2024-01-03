@@ -1,0 +1,182 @@
+diff --git a/frameworks/base/Android.bp b/frameworks/base/Android.bp
+index 33f803d..1f4d23e 100755
+--- a/frameworks/base/Android.bp
++++ b/frameworks/base/Android.bp
+@@ -661,6 +661,9 @@ java_defaults {
+         "packages/services/Proxy/com/android/net/IProxyPortListener.aidl",
+         "core/java/android/service/quicksettings/IQSService.aidl",
+         "core/java/android/service/quicksettings/IQSTileService.aidl",
++        // Add by wen.liu for custom services for customers to use 2023-8-7 start
++        "core/java/com/simcom/ISunseaSdkService.aidl",
++        // Add by wen.liu for custom services for customers to use 2023-8-7 end
+         "telephony/java/com/android/internal/telephony/ISmsSecurityService.aidl",
+         "telephony/java/com/android/internal/telephony/ISmsSecurityAgent.aidl",
+ 
+diff --git a/frameworks/base/core/java/android/os/SunseaSdk.java b/frameworks/base/core/java/android/os/SunseaSdk.java
+new file mode 100755
+index 0000000..eca9049
+--- /dev/null
++++ b/frameworks/base/core/java/android/os/SunseaSdk.java
+@@ -0,0 +1,44 @@
++package android.os;
++
++import android.os.IBinder;
++import com.simcom.ISunseaSdkService;
++import android.os.RemoteException;
++import android.util.Log;
++import android.annotation.NonNull;
++import android.annotation.Nullable;
++
++public final class SunseaSdk {
++
++  private static final String TAG = "SunseaSdkManager";
++  private ISunseaSdkService mService;
++  public SunseaSdk() {
++        Log.i(TAG, "SunseaSdkManager oncreate");
++        mService = getServiceInterface();
++    }
++
++    /** get handle to SunseaSdkManager service interface */
++
++
++    private ISunseaSdkService getServiceInterface() {
++        /* get a handle to SunseaSdkManager service */
++        IBinder b = android.os.ServiceManager.getService("SunseaSdkService");
++        Log.i(TAG, "SunseaSdkManager getServiceInterface  " + b);
++        if (b == null) {
++            return null;
++        }
++        return ISunseaSdkService.Stub.asInterface(b);
++    }
++
++     /**
++     * shutdown
++     *
++     * @param enable
++     */
++    public void shutdown() {
++        try {
++            mService.shutdown();
++        } catch (RemoteException e) {
++        }
++    }
++
++}
+\ No newline at end of file
+diff --git a/frameworks/base/core/java/com/simcom/ISunseaSdkService.aidl b/frameworks/base/core/java/com/simcom/ISunseaSdkService.aidl
+new file mode 100755
+index 0000000..979e8c2
+--- /dev/null
++++ b/frameworks/base/core/java/com/simcom/ISunseaSdkService.aidl
+@@ -0,0 +1,25 @@
++package com.simcom;
++
++import android.content.ContentValues;
++import android.content.res.Configuration;
++
++/**
++ * The communication channel by which an external system that wants to control the system
++ * vibrator can notify the vibrator subsystem.
++ *
++ * Some vibrators can be driven via multiple paths (e.g. as an audio channel) in addition to
++ * the usual interface, but we typically only want one vibration at a time playing because they
++ * don't mix well. In order to synchronize the two places where vibration might be controlled,
++ * we provide this interface so the vibrator subsystem has a chance to:
++ *
++ * 1) Decide whether the current vibration should play based on the current system policy.
++ * 2) Stop any currently on-going vibrations.
++ * {@hide}
++ */
++interface ISunseaSdkService{
++
++/**
++* A method called by the external system when a vibration no longer wants to play.
++*/
++void shutdown();
++}
+diff --git a/frameworks/base/services/java/com/android/server/SunseaSdkService.java b/frameworks/base/services/java/com/android/server/SunseaSdkService.java
+new file mode 100755
+index 0000000..4341bc1
+--- /dev/null
++++ b/frameworks/base/services/java/com/android/server/SunseaSdkService.java
+@@ -0,0 +1,63 @@
++package com.android.server;
++
++import android.app.PendingIntent;
++import android.content.Context;
++import com.simcom.ISunseaSdkService;
++import android.provider.Settings;
++import android.content.Intent;
++import android.content.IntentSender;
++import android.content.pm.PackageInstaller;
++import android.os.RemoteException;
++import android.util.Log;
++import android.os.ServiceManager;
++import android.os.Binder;
++import android.os.IBinder;
++import android.app.AlarmManager;
++import android.os.PowerManager;
++import android.os.SystemClock;
++import android.os.SystemProperties;
++import android.content.Intent;
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.OutputStream;
++import com.android.internal.view.RotationPolicy;
++
++public class SunseaSdkService extends SystemService {
++
++  private Context mContext;
++  private static final String TAG = "SunseaSdkService";
++  private static final boolean DEBUG = true;
++
++  public SunseaSdkService(Context context) {
++        super(context);
++        Log.i(TAG, "SunseaSdkService create");
++        mContext = context;
++    }
++
++    @Override
++    public void onStart() {
++        Log.i(TAG, "SunseaSdkService onStart");
++        publishBinderService("SunseaSdkService", new BinderService());
++    }
++
++    public void systemReady() {
++        Log.i(TAG, "SunseaSdkService systemReady");
++        //mPolicy = getLocalService(WindowManagerPolicy.class);
++        //addIPWhiteListInBoot();
++    }
++
++    private final class BinderService extends ISunseaSdkService.Stub {
++
++         @Override
++        public void shutdown(){
++            final long token = Binder.clearCallingIdentity();
++            try {
++                PowerManager mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
++                mPowerManager.shutdown(false,PowerManager.SHUTDOWN_USER_REQUESTED,false);
++            } finally {
++                Binder.restoreCallingIdentity(token);
++            }
++        }
++
++    }
++}
+diff --git a/frameworks/base/services/java/com/android/server/SystemServer.java b/frameworks/base/services/java/com/android/server/SystemServer.java
+index a61d2b1..0a38087 100755
+--- a/frameworks/base/services/java/com/android/server/SystemServer.java
++++ b/frameworks/base/services/java/com/android/server/SystemServer.java
+@@ -949,6 +949,12 @@ public final class SystemServer {
+                 }
+             }, SECONDARY_ZYGOTE_PRELOAD);
+ 
++            // Add by wen.liu for custom services for customers to use 2023-8-7 start
++            traceBeginAndSlog("SunseaSdkService");
++            mSystemServiceManager.startService(SunseaSdkService.class);
++            traceEnd();
++            // Add by wen.liu for custom services for customers to use 2023-8-7 end
++
+             traceBeginAndSlog("StartKeyAttestationApplicationIdProviderService");
+             ServiceManager.addService("sec_key_att_app_id_provider",
+                     new KeyAttestationApplicationIdProviderService(context));

@@ -1,0 +1,77 @@
+diff --git a/frameworks/base/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java b/frameworks/base/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+index fafec67..92f7105 100755
+--- a/frameworks/base/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
++++ b/frameworks/base/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+@@ -113,6 +113,8 @@ import java.util.List;
+ import java.util.Map.Entry;
+ import java.util.TimeZone;
+ import java.util.function.Consumer;
++// Modify by wen.liu for specify package name application installation starts automatically 2023.6.20
++import android.net.Uri;
+ 
+ /**
+  * Watches for updates that may be interesting to the keyguard, and provides
+@@ -190,6 +192,11 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
+     private static final ComponentName FALLBACK_HOME_COMPONENT = new ComponentName(
+             "com.android.settings", "com.android.settings.FallbackHome");
+ 
++    // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 start
++    private static final String CUSTOMER_PACKAGE_NAME = "com.th.helmet";
++    private static final ComponentName CUSTOMER_COMPONENT = new ComponentName(
++        CUSTOMER_PACKAGE_NAME, "com.th.helmet.view.activity.MainTabActivity");
++    // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 end
+ 
+     /**
+      * If true, the system is in the half-boot-to-decryption-screen state.
+@@ -1144,6 +1151,15 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
+                     action)) {
+                 mHandler.sendEmptyMessage(MSG_DEVICE_POLICY_MANAGER_STATE_CHANGED);
+             }
++            // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 start
++            else if(Intent.ACTION_PACKAGE_REPLACED.equals(action)){
++				 Uri data = intent.getData();
++                 String packageName = data.getEncodedSchemeSpecificPart();
++                 if(CUSTOMER_PACKAGE_NAME.equals(packageName)){
++					 startCustomerApp();
++				 }
++			}
++            // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 end
+         }
+     };
+ 
+@@ -1175,6 +1191,20 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
+         }
+     };
+ 
++    // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 start
++	private void startCustomerApp(){
++		try {
++        Intent intent = new Intent(Intent.ACTION_MAIN);
++        intent.addCategory(Intent.CATEGORY_LAUNCHER);
++        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++        intent.setComponent(CUSTOMER_COMPONENT);
++        mContext.startActivity(intent);
++        }catch (Exception e){
++            e.printStackTrace();
++        }
++    }
++    // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 end
++
+     private final FingerprintManager.LockoutResetCallback mFingerprintLockoutResetCallback
+             = new FingerprintManager.LockoutResetCallback() {
+         @Override
+@@ -1571,6 +1601,14 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
+         context.registerReceiverAsUser(mBroadcastAllReceiver, UserHandle.ALL, allUserFilter,
+                 null, mHandler);
+ 
++        // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 start
++		final IntentFilter packageFilter = new IntentFilter();
++        packageFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
++		packageFilter.addDataScheme("package");
++		packageFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
++        context.registerReceiver(mBroadcastReceiver, packageFilter, null, mHandler);
++        // Modify by wen.liu for specify package name application installation starts automatically 2023.6.20 end
++
+         mSubscriptionManager.addOnSubscriptionsChangedListener(mSubscriptionListener);
+         try {
+             ActivityManager.getService().registerUserSwitchObserver(
