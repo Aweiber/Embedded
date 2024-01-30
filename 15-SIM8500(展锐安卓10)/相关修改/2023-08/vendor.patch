@@ -1,0 +1,1416 @@
+commit c8dc49094e40bf5830f5848efda6bcb906bb9291
+Author: wenxiaoqiang <xiaoqiang.wen@simcom.com>
+Date:   Fri Mar 31 17:18:29 2023 +0800
+
+        【分支名称】：SIM8500
+        【客户名称】：SIM8502 & SIM8502_mofang & sim8500E_cit & SIM8500E & SIM8500E_shengteng & Old_projects/SIM8502 & SIM8502_DaQu & SIM8502_cit & SIM8500E_shengteng_cit
+        【修改描述】：添加两个at command，AT+CROEM，AT+MODULEINFO
+        【责任人员】：wenxiaoqiang
+        【问题单号】：无
+    
+    Change-Id: I1fbf02e934c7926e06290c9531b277edd3075a14
+
+diff --git a/Old_projects/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/Old_projects/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/Old_projects/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/Old_projects/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8500E/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8500E/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8500E/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8500E/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8500E_shengteng/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8500E_shengteng/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8500E_shengteng/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8500E_shengteng/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8500E_shengteng_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8500E_shengteng_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8500E_shengteng_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8500E_shengteng_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8502/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8502_DaQu/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8502_DaQu/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8502_DaQu/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8502_DaQu/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8502_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8502_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8502_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8502_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/SIM8502_mofang/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/SIM8502_mofang/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/SIM8502_mofang/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/SIM8502_mofang/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
+diff --git a/sim8500E_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c b/sim8500E_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+old mode 100644
+new mode 100755
+index f5e1079..3efab6b
+--- a/sim8500E_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
++++ b/sim8500E_cit/vendor/sprd/proprietories-source/engpc/modules/libmiscdata/miscdata_rw.c
+@@ -19,6 +19,9 @@
+ //write, read module info
+ #define AT_MODULEINFO "AT+MODULEINFO="
+ 
++//write, read SN
++#define AT_CROEM "AT+CROEM="
++
+ static DYMIC_WRITETOPC_FUNC g_func[WRITE_TO_MAX] = {NULL};
+ 
+ int get_fw_ptr(DYMIC_WRITETOPC_FUNC * write_interface_ptr){
+@@ -202,6 +205,128 @@ out:
+     return strlen(rsp);
+ }
+ 
++static int sn_handle(char *buff, char *rsp)
++{
++    char *ptr = NULL;
++    char *ptrpara = NULL;
++    char sprdver[256] = {0};
++    int ret = -1;
++    int nlen = 0;
++    int mode = -1;
++    int ptrlen = 0;
++    int i = 0;
++
++    if (NULL == buff) {
++        ENG_LOG("%s, null pointer", __FUNCTION__);
++        if (NULL == rsp) {
++            return 0;
++        }
++        sprintf(rsp, "ERROR 1\r\n");
++        return strlen(rsp);
++    }
++
++    if (buff[0] == 0x7e) {
++        ENG_LOG("%s, buff[0] == 0x7e", __FUNCTION__);
++        ptr = buff + 1 + sizeof(MSG_HEAD_T);
++    } else {
++        ENG_LOG("%s, buff[0] != 0x7e", __FUNCTION__);
++        ptr = strdup(buff);
++    }
++
++    ENG_LOG("%s ptr = %s", __FUNCTION__, ptr);
++    if (strncasecmp(ptr, AT_CROEM, strlen(AT_CROEM)) == 0) {
++        // address 768K (0xC0000) + 64Byte
++        ptrpara = ptr+strlen(AT_CROEM);
++        ptrlen = strlen(ptrpara);
++        ENG_LOG("%s 0 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        while (ptrpara[ptrlen-2] == '\r' && ptrpara[ptrlen-1] == '\n') {
++          //trim "\r\n"
++          ENG_LOG("%s trim CRLF", __FUNCTION__);
++          ptrpara[ptrlen-2] = 0x0;
++          ptrpara[ptrlen-1] = 0x0;
++          ptrlen -= 2;
++        }
++        ENG_LOG("%s 1 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++
++        //1. find mode
++        // write : AT+CROEM=2,snxxx
++        // read : AT+CROEM=2
++        if (ptrpara[0] != '2') {
++          sprintf(rsp, "ERROR 2\r\n");
++          goto out;
++        }
++        if (ptrpara[1] == ',' && ptrpara[2] == 0x0) {
++            sprintf(rsp, "ERROR 2-1\r\n");
++            goto out;
++        } else if(ptrpara[1] == 0x0) {
++            //read : AT+CROEM=2
++            mode = 0;
++        } else {
++            // write : AT+CROEM=2,snxxx
++            mode = 1;
++        }
++        ptrpara ++;
++        ptrlen = strlen(ptrpara);
++
++        //2. find length
++        if (mode == 1 && ptrpara[0] != ',') {
++          sprintf(rsp, "ERROR 3\r\n");
++          goto out;
++        }
++        if(mode == 1) {
++            // write : AT+CROEM=2,snxxx
++            ptrpara ++;
++            ptrlen = strlen(ptrpara);
++            nlen = ptrlen;
++            ENG_LOG("%s 2 - ptrpara: %s, ptrlen: %d", __FUNCTION__, ptrpara, ptrlen);
++        } else {
++            ptrlen = 0;
++        }
++        ENG_LOG("%s mode: %d, nlen: %d", __FUNCTION__, mode, nlen);
++
++        if (mode == 1) {
++            //write: AT+CROEM=2,snxxx
++            if (ptrlen >= 64) {
++              sprintf(rsp, "ERROR 4\r\n");
++              goto out;
++            }
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_write_miscdata_with_offset(0xC0000+0x40, ptrpara, nlen+1);
++            if (ret == 0) {
++                sprintf(rsp, "OK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 5\r\n");
++            }
++        } else if (mode == 0) {
++            //read: AT+CROEM=2
++            if (ptrlen != 0) {
++              sprintf(rsp, "ERROR 6\r\n");
++              goto out;
++            }
++            // max read 64 Bytes
++            nlen = 64;
++            // address 768K (0xC0000) + 64Byte
++            ret = eng_read_miscdata_with_offset(0xC0000+0x40, sprdver, nlen);
++            if (ret == 0) {
++                ENG_LOG("%s sprdver = %s", __FUNCTION__, sprdver);
++                sprintf(rsp, "+CROEM:");
++                strcat(rsp, sprdver);
++                strcat(rsp, "\r\nOK\r\n");
++            } else {
++                sprintf(rsp, "ERROR 7\r\n");
++            }
++        }
++    } else {
++        sprintf(rsp, "ERROR 8\r\n");
++    }
++out:
++    if (buff[0] != 0x7e) {
++        free(ptr);
++    }
++
++    return strlen(rsp);
++}
++
+ void register_this_module_ext(struct eng_callback *reg, int *num)
+ {
+     int i = 0;
+@@ -212,6 +337,10 @@ void register_this_module_ext(struct eng_callback *reg, int *num)
+     (reg + moudles_num)->eng_linuxcmd_func = ModuleInfo_handle;
+     moudles_num++;
+ 
++    sprintf((reg + moudles_num)->at_cmd, "%s", AT_CROEM);
++    (reg + moudles_num)->eng_linuxcmd_func = sn_handle;
++    moudles_num++;
++
+     (reg+moudles_num)->type = 0x0D;
+     (reg+moudles_num)->subtype = 0x02;
+     (reg+moudles_num)->eng_diag_func = miscdata_handler;
